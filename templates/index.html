@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Resultado do Balanceamento</title>
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body class="index-bg">
+
+  <div class="container">
+    <h1>Times Gerados</h1>
+
+    <div class="times-container" style="display: flex; justify-content: space-between; gap: 20px; margin-top: 30px;">
+      <div class="time-box" style="flex: 1; background: #222; padding: 15px; border-radius: 8px;">
+        <h2>Time 1</h2>
+        <ul>
+          {% for jogador in time1 %}
+            <li>
+              <strong>{{ jogador.nome }}</strong><br/>
+              Elo: {{ jogador.elo }} | Vitórias: {{ jogador.vitorias }} | MMR: {{ jogador.mmr }}
+            </li>
+          {% endfor %}
+        </ul>
+        <p><strong>MMR total:</strong> {{ time1 | sum(attribute='mmr') }}</p>
+      </div>
+
+      <div class="time-box" style="flex: 1; background: #222; padding: 15px; border-radius: 8px;">
+        <h2>Time 2</h2>
+        <ul>
+          {% for jogador in time2 %}
+            <li>
+              <strong>{{ jogador.nome }}</strong><br/>
+              Elo: {{ jogador.elo }} | Vitórias: {{ jogador.vitorias }} | MMR: {{ jogador.mmr }}
+            </li>
+          {% endfor %}
+        </ul>
+        <p><strong>MMR total:</strong> {{ time2 | sum(attribute='mmr') }}</p>
+      </div>
+    </div>
+
+    <form method="get" action="{{ url_for('resultado') }}" style="margin-top: 30px;">
+      <input type="hidden" name="nomes" value="{{ nomes }}">
+      <button type="submit">Sortear Novamente</button>
+    </form>
+
+    <form method="get" action="{{ url_for('index') }}" style="margin-top: 10px;">
+      <button type="submit">Voltar e Editar</button>
+    </form>
+  </div>
+
+</body>
+</html>
