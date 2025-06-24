@@ -4,64 +4,111 @@ import os
 import pytesseract
 from PIL import Image
 import random
+import requests
+import base64
+from io import BytesIO
+import re
 
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # Atualize esse caminho se necessário
+# === CONFIGURAÇÕES ===
+API_KEY = 'RGAPI-55d9d231-a982-4c48-afc2-489f4b98042b'  # Substitua pela sua chave válida
+REGION = 'br1'
+pytesseract.pytesseract.tesseract_cmd = r"E:\\balanciamento-de-jogos\\static\\tesseract-5.5.1\\tesseract.exe"
 
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
+# === INICIALIZAÇÃO ===
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# === DICIONÁRIO DE ELOS PARA CÁLCULO DE MMR ===
+tiers = {
+    'IRON': 1, 'BRONZE': 2, 'SILVER': 3, 'GOLD': 4,
+    'PLATINUM': 5, 'EMERALD': 6, 'DIAMOND': 7,
+    'MASTER': 8, 'GRANDMASTER': 9, 'CHALLENGER': 10
+}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def extrair_nomes_da_imagem(caminho):
-    try:
-        img = Image.open(caminho)
-        texto = pytesseract.image_to_string(img, lang='eng')
-        linhas = [linha.strip() for linha in texto.split('\n') if linha.strip()]
-        nomes = list(set(linhas))  # remove duplicados
-        return nomes
-    except Exception as e:
-        print(f"Erro ao ler imagem: {e}")
-        return []
+def calcular_mmr_manual(elo):
+    if not elo:
+        return 0
+    partes = elo.strip().upper().split()
+    tier = partes[0] if partes else ''
+    return tiers.get(tier, 0) * 100
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         nomes_texto = request.form.get("nomes", "")
-        jogadores = [n.strip() for n in nomes_texto.splitlines() if n.strip()]
+        jogadores = []
 
-        imagem_filename = None
-        if 'imagem' in request.files:
-            imagem = request.files['imagem']
-            if imagem and allowed_file(imagem.filename):
-                filename = secure_filename(imagem.filename)
-                imagem.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                imagem_filename = filename
+        erro = None
+        separadores = r'[|\-_/.,]'  # todos os separadores permitidos
 
-                jogadores_img = extrair_nomes_da_imagem(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                jogadores.extend(j for j in jogadores_img if j not in jogadores)
+        for linha in nomes_texto.splitlines():
+            partes = re.split(separadores, linha)
+            partes = [p.strip() for p in partes if p.strip()]
+            if len(partes) >= 2:
+                nome, elo = partes[0], partes[1]
+                jogadores.append({
+                    'nome': nome,
+                    'elo': elo,
+                    'vitorias': 0,
+                    'mmr': calcular_mmr_manual(elo)
+                })
+            elif len(partes) == 1:
+                jogadores.append({
+                    'nome': partes[0],
+                    'elo': 'Desconhecido',
+                    'vitorias': 0,
+                    'mmr': 0
+                })
 
         if not jogadores:
-            return render_template('index.html', erro="Nenhum jogador foi identificado.")
+            erro = "Nenhum jogador foi identificado via texto ou imagem."
 
-        return redirect(url_for('resultado', nomes="|".join(jogadores)))
+        return redirect(url_for('resultado', nomes="|".join([f"{j['nome']}|{j['elo']}" for j in jogadores]), erro=erro or ""))
 
     return render_template('index.html')
 
 @app.route('/resultado')
 def resultado():
     nomes_str = request.args.get("nomes", "")
-    jogadores = nomes_str.split("|") if nomes_str else []
+    erro = request.args.get("erro", "")
+    nomes_elo = nomes_str.split("|")
+    jogadores = []
 
-    random.shuffle(jogadores)
-    meio = len(jogadores) // 2
-    time1 = jogadores[:meio]
-    time2 = jogadores[meio:]
+    if erro:
+        return render_template("resultado.html", erro=erro, time1=[], time2=[], nomes="")
 
-    return render_template("resultado.html", time1=time1, time2=time2, nomes="|".join(jogadores))
+    # Monta pares (nome, elo)
+    for i in range(0, len(nomes_elo), 2):
+        if i + 1 < len(nomes_elo):
+            nome = nomes_elo[i]
+            elo = nomes_elo[i+1]
+            jogadores.append({
+                'nome': nome,
+                'elo': elo,
+                'vitorias': 0,
+                'mmr': calcular_mmr_manual(elo)
+            })
+
+    jogadores.sort(key=lambda j: j['mmr'], reverse=True)
+    time1, time2 = [], []
+    soma1 = soma2 = 0
+
+    for jogador in jogadores:
+        if soma1 <= soma2:
+            time1.append(jogador)
+            soma1 += jogador['mmr']
+        else:
+            time2.append(jogador)
+            soma2 += jogador['mmr']
+
+    return render_template("resultado.html", time1=time1, time2=time2, nomes=nomes_str, erro="")
 
 if __name__ == '__main__':
     app.run(debug=True)

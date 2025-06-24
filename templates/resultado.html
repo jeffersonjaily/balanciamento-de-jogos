@@ -1,36 +1,49 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Resultado do Balanceamento</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
-<body>
+<body class="resultado-bg">
   <div class="container">
-    <h1>Times Gerados</h1>
+    <h1>Resultado do Balanceamento</h1>
 
-    <h2>Time 1</h2>
-    <ul>
-      {% for j in time1 %}
-        <li>{{ j }}</li>
-      {% endfor %}
-    </ul>
+    {% if erro %}
+      <p class="erro">{{ erro }}</p>
+    {% else %}
+      <div class="times-container">
+        <div class="time-box">
+          <h2>Time 1</h2>
+          <ul>
+            {% for jogador in time1 %}
+              <li>
+                <strong>{{ jogador.nome }}</strong><br/>
+                Elo: {{ jogador.elo }} | Vitórias: {{ jogador.vitorias }}
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
 
-    <h2>Time 2</h2>
-    <ul>
-      {% for j in time2 %}
-        <li>{{ j }}</li>
-      {% endfor %}
-    </ul>
+        <div class="time-box">
+          <h2>Time 2</h2>
+          <ul>
+            {% for jogador in time2 %}
+              <li>
+                <strong>{{ jogador.nome }}</strong><br/>
+                Elo: {{ jogador.elo }} | Vitórias: {{ jogador.vitorias }}
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endif %}
 
-    <form method="get" action="{{ url_for('resultado') }}">
-      <input type="hidden" name="nomes" value="{{ nomes }}">
-      <input type="submit" value="Sortear Novamente">
-    </form>
-
-    <form method="get" action="{{ url_for('index') }}">
-      <input type="submit" value="Voltar e Editar">
-    </form>
+    <div class="actions">
+      <form method="get" action="{{ url_for('index') }}">
+        <button type="submit">Voltar</button>
+      </form>
+    </div>
   </div>
 </body>
 </html>
